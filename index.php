@@ -10,10 +10,6 @@
     <title>IP</title>
 </head>
 <body>
-    <header>
-        <h1>Cálculo de máscara de sub-rede IPv4</h1>
-    </header>
-
     <section>
         <h1>Calcular máscara de sub-rede IPv4</h1>
     </section>
