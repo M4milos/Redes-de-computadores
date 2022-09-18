@@ -1,194 +1,162 @@
 <?php
-    //calculadora de ipv4
     class CalculadoraIP{
-    // Endereço IP
-    public $endereco;
-    
-    // Cidr
-    public $cidr;
-    
-    // Endereço IP completo
-    public $endereco_completo;
+        public $ip;
+        public $cidr;
+        public $endereco;
 
-    /**
-     * O construtor para criar a classe
-    */
-    public function __construct($endereco_completo) {
-        $this->endereco_completo = $endereco_completo;
-        $this->valida_endereco();
-    }
-    /**
-     * Valida o endereço IPv4
-     */
-    public function valida_endereco() {
-        // Expressão regular
-        $regexp = '/^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\/[0-9]{1,2}$/';
-        
-        // Verifica o IP/CIDR
-        if ( ! preg_match( $regexp, $this->endereco_completo ) ) {
-            return false;
+        public function __construct($ip, $cidr){ // Construtor
+            $this->ip = $ip; // Recebe o IP
+            $this->cidr = $cidr; // Recebe o CIDR
+            $this->endereco = $this->endereco(); // Recebe o endereço
         }
-        
-        // Separa o IP do prefixo CIDR
-        $endereco = explode( '/', $this->endereco_completo );
-        
-        // CIDR
-        $this->cidr = (int) $endereco[1];
-        
-        // Endereço IPv4
-        $this->endereco = $endereco[0];
-        
-        // Verifica o prefixo
-        if ( $this->cidr > 32 ) {
-            return false;
+
+        public function endereco(){
+            return long2ip(ip2long($this->ip)); // Converte o IP para o formato decimal
+        } 
+
+        public function mascara(){
+            return long2ip(-1 << (32 - (int)$this->cidr)); // Converte o CIDR para o formato decimal
         }
-        
-        // Faz um loop e verifica cada número do IP
-        foreach( explode( '.', $this->endereco ) as $numero ) {
-        
-            // Garante que é um número
-            $numero = (int) $numero;
-            
-            // Não pode ser maior que 255 nem menor que 0
-            if ( $numero > 255 || $numero < 0 ) {
-                return false;
+
+        public function valida_endereco(){
+            if (filter_var($this->endereco, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) { // Valida o IP
+                return true; // IP "válido" (correto)
+            } else { 
+                return false; // IP "inválido"
             }
         }
-        
-        // IP "válido" (correto)
-        return true;
-    }
 
-    /* Retorna o endereço IPv4/CIDR */
-    public function endereco_completo() { 
-        return ( $this->endereco_completo ); 
-    }
-
-    /* Retorna o endereço IPv4 */
-    public function endereco() { 
-        return ( $this->endereco ); 
-    }
-
-    /* Retorna o prefixo CIDR */
-    public function cidr() { 
-        return ( $this->cidr ); 
-    }
-
-    /* Retorna a máscara de sub-rede */
-    public function mascara() {
-        if ( $this->cidr() == 0 ) {
-            return '0.0.0.0';
+        public function valida_cidr(){ 
+            if (filter_var($this->cidr, FILTER_VALIDATE_INT, array("options" => array("min_range"=>0, "max_range"=>32)))) { // Valida o CIDR
+                return true; // CIDR "válido" (correto)
+            } else {
+                return false; // CIDR "inválido"
+            }
         }
 
-        return ( 
-            long2ip(
-                ip2long("255.255.255.255") << ( 32 - $this->cidr ) 
-            )
-        );
-    }
-
-    /* Retorna a rede na qual o IP está */
-    public function rede() {
-        if ( $this->cidr() == 0 ) {
-            return '0.0.0.0';
+        public function valida_ip(){
+            if ($this->valida_endereco() && $this->valida_cidr()) { // Valida o IP e o CIDR
+                return true; // IP "válido" (correto)
+            } else {
+                return false; // IP "inválido"
+            }
         }
 
-        return (
-            long2ip( 
-                ( ip2long( $this->endereco ) ) & ( ip2long( $this->mascara() ) )
-            )
-        );
-    }
+        public function rede(){
+            return long2ip(ip2long($this->endereco) & ip2long($this->mascara())); // Converte o IP e a máscara para o formato decimal
+        }
 
-    /* Retorna o IP de broadcast da rede */
-    public function broadcast() {
-        if ( $this->cidr() == 0 ) {
-            return '255.255.255.255';
+        public function broadcast(){
+            return long2ip(ip2long($this->rede()) | ~ip2long($this->mascara())); // Converte o IP e a máscara para o formato decimal
         }
-        
-        return (
-            long2ip( ip2long($this->rede() ) | ( ~ ( ip2long( $this->mascara() ) ) ) )
-        );
-    }
-    
-    /* Retorna o número total de IPs (com a rede e o broadcast) */
-    public function total_ips() {
-        return( pow(2, ( 32 - $this->cidr() ) ) );
-    }
-    
-    /* Retorna os número de IPs que podem ser utilizados na rede */
-    public function ips_rede() {
-        if ( $this->cidr() == 32 ) {
-            return 0;
-        } elseif ( $this->cidr() == 31 ) {
-            return 0;
+
+        public function endereco_completo(){
+            return $this->endereco . "/" . $this->cidr; // Retorna o endereço completo
         }
-        
-        return( abs( $this->total_ips() - 2 ) );
-    }
-    
-    /* Retorna os número de IPs que podem ser utilizados na rede */
+
+        public function cidr(){
+            return $this->cidr; // Retorna o CIDR
+        }
+
     public function primeiro_ip() {
-        if ( $this->cidr() == 32 ) {
+        if ( $this->cidr() == 32 ) { // Se o CIDR for 32
             return null;
-        } elseif ( $this->cidr() == 31 ) {
+        } elseif ( $this->cidr() == 31 ) { // Se o CIDR for 31
             return null;
-        } elseif ( $this->cidr() == 0 ) {
+        } elseif ( $this->cidr() == 0 ) { // Se o CIDR for 0
             return '0.0.0.1';
-        }
-        
-        return (
-            long2ip( ip2long( $this->rede() ) | 1 )
-        );
+        }return ( 
+            long2ip(ip2long($this->rede())|1)); // Converte o IP para o formato decimal
     }
     
-    /* Retorna os número de IPs que podem ser utilizados na rede */
     public function ultimo_ip() {
-        if ( $this->cidr() == 32 ) {
+        if ( $this->cidr() == 32 ) { // Se o CIDR for 32
             return null;
-        } elseif ( $this->cidr() == 31 ) {
-            return null;
+        } elseif ( $this->cidr() == 31 ) { // Se o CIDR for 31 
+            return null; 
+        }return (
+            long2ip(ip2long($this->rede())|((~(ip2long($this->mascara())))-1))); // Converte o IP para o formato decimal
+    } 
+
+    public function redebinario(){
+        $binario = ""; // Inicializa a variável
+        $octetos = explode(".", $this->endereco);  // Separa os octetos do IP
+        foreach ($octetos as $octeto) { // Percorre os octetos 
+            $binario .= str_pad(decbin($octeto), 8, "0", STR_PAD_LEFT); // Converte os octetos para binário
         }
-    
-        return (
-            long2ip( ip2long( $this->rede() ) | ( ( ~ ( ip2long( $this->mascara() ) ) ) - 1 ) )
-        );
+        return implode(".", str_split($binario, 8)); // Retorna o IP em binário
     }
 
-    public static function CatchIP() {
-        if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-            $ip = $_SERVER['HTTP_CLIENT_IP'];
-        } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
-        } else {
-            $ip = $_SERVER['REMOTE_ADDR'];
+    public function mascarabinario(){
+        $binario = ""; // ""
+        $octetos = explode(".", $this->mascara()); // ""
+        foreach ($octetos as $octeto) {
+            $binario .= str_pad(decbin($octeto), 8, "0", STR_PAD_LEFT); // ""
         }
+        return implode(".", str_split($binario, 8));  // ""
+    }
 
-        if($ip = "::1") {
-            $ip = "Localhost"; 
+    public function broadcastbinario(){
+        $binario = ""; // ""
+        $octetos = explode(".", $this->broadcast()); // ""
+        foreach ($octetos as $octeto) { // ""
+            $binario .= str_pad(decbin($octeto), 8, "0", STR_PAD_LEFT); // ""
         }
-
-
-        return $ip;
+        return implode(".", str_split($binario, 8)); // ""
     }
-    public function __toString() {
-        $str = "<h2>Configurações de rede para <span>" . $this->endereco_completo . "</span></h2>
-                <pre>
-                    <b>Endereço/Rede: </b>  ".$this->endereco_completo()."    <br>
-                    <b>Endereço: </b>   ".$this->endereco()." <br>
-                    <b>Prefixo CIDR: </b>   ".$this->cidr()." <br>
-                    <b>Máscara de sub-rede: </b>    ".$this->mascara()."    <br>
-                    <b>IP da Rede: </b> ".$this->rede()."'/'".$this->cidr()."   <br>
-                    <b>Broadcast da Rede: </b>  ".$this->broadcast()."    <br>
-                    <b>Primeiro Host: </b>  ".$this->primeiro_ip()."  <br>
-                    <b>Último Host: </b>    ".$this->ultimo_ip()."    <br>
-                    <b>Total de IPs:  </b>  ".$this->total_ips()."   <br>
-                    <b>Hosts: </b>  ".$this->ips_rede() . "
-                </pre>";
-        return $str;
-        
+
+    public function primeiropbinario(){
+        $binario = ""; // ""
+        $octetos = explode(".", $this->primeiro_ip()); // ""
+        foreach ($octetos as $octeto) { // ""
+            $binario .= str_pad(decbin($octeto), 8, "0", STR_PAD_LEFT); // ""
+        } 
+        return implode(".", str_split($binario, 8)); // ""
     }
-}      
+
+    public function ultimopbinario(){
+        $binario = ""; // ""
+        $octetos = explode(".", $this->ultimo_ip()); // ""
+        foreach ($octetos as $octeto) { // ""
+            $binario .= str_pad(decbin($octeto), 8, "0", STR_PAD_LEFT); // ""
+        }
+        return implode(".", str_split($binario, 8)); // ""
+    }
     
-    
+    public function cidrbinario(){
+        $binario = ""; // ""
+        $octetos = explode(".", $this->cidr()); // ""
+        foreach ($octetos as $octeto) { // ""
+            $binario .= str_pad(decbin($octeto), 8, "0", STR_PAD_LEFT); // ""
+        }
+        return implode(".", str_split($binario, 8)); // ""
+    }
+
+    /* a
+            Desenvolver software para calcular os endereços de Rede, Broadcast, 
+            primeiro IP util e ultimo IP util sobre endereço qualquer e mascara de rede
+
+            Lembrando que teremos como entrada "endereço de IP e Mascara de rede"
+
+            Obs. O resultado deve ser mostrado em base decimal e binária.
+
+            Att
+        */
+
+        public function __toString(){ // Método mágico para exibir o objeto
+            return "Endereço: " . $this->endereco_completo() . "<br>
+                    Rede: " . $this->rede() . "<br>
+                    Rede binária: " . $this->redebinario() . "<br>
+                    Broadcast: " . $this->broadcast() . "<br>
+                    Broadcast binário: " . $this->broadcastbinario() . "<br>
+                    Primeiro IP: " . $this->primeiro_ip() . "<br>
+                    Primeiro IP binário: " . $this->primeiropbinario() . "<br>
+                    Ultimo IP: " . $this->ultimo_ip() . "<br>
+                    Ultimo IP binário: " . $this->ultimopbinario() . "<br>
+                    Máscara: " . $this->mascara() . "<br>
+                    Máscara binária: " . $this->mascarabinario() . "<br>
+                    Cidr: " . $this->cidr() . "<br>
+                    Cidr binário: " . $this->cidrbinario() . "<br>";
+        }
+    }
 ?>
